@@ -23,16 +23,6 @@ class datadog {
       default: { fail("The DataDog module only support Red Hat and Ubuntu derivatives") }
     }
 
-    package { "datadog-agent":
-      ensure => latest,
-    }
-
-    service { "datadog-agent":
-      ensure => running,
-      enable => true,
-      require => Package["datadog-agent"],
-    }
-
    file { "/etc/dd-agent":
      ensure => present,
      owner => "root",
