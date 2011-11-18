@@ -1,0 +1,4 @@
+this is for installing james' puppet report processor git://github.com/jamtur01/puppet-datadog.git
+
+install this on the puppet master in the reports directory (same place where reports/store.rb lives)
+centos 5.5: /usr/lib/ruby/site_ruby/1.8/puppet/reports/
