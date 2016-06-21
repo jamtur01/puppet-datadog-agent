@@ -1,6 +1,8 @@
 Puppet & Datadog
 ================
 
+[![Build Status](https://travis-ci.org/DataDog/puppet-datadog-agent.svg?branch=master)](https://travis-ci.org/DataDog/puppet-datadog-agent)
+
 Description
 -----------
 
@@ -12,100 +14,110 @@ A module to:
 Requirements
 ------------
 
-* [puppet](http://puppetlabs.com)
-* A [Datadog](http://www.datadoghq.com) account and an API Key
-
-On your Puppet master:
-
-* [dogapi](https://rubygems.org/gems/dogapi) gem (v 1.0.3 and later)
+Puppet >=2.7.x and <=4.2.x. For detailed informations on compatibility, check the [module page](https://forge.puppetlabs.com/datadog/datadog_agent) on the Puppet forge.
 
 Installation
 ------------
 
-Install `datadog` as a module in your Puppet master's module path.
+Install `datadog_agent` as a module in your Puppet master's module path.
 
-     git clone https://github.com/DataDog/puppet-datadog-agent.git /etc/puppet/modules/datadog
+    puppet module install datadog-datadog_agent
 
-Note that this installed the module in `/etc/puppet/modules/datadog`
+### Upgrade from previous git manual install 0.x (unreleased)
+
+You can keep using the `datadog` module but it becomes legacy with the release of `datadog_agent` 1.0.0. Upgrade to get new features, and use the puppet forge system which is way easier for maintenance.
+
+* Delete the datadog module `rm -r /etc/puppet/modules/datadog`
+* Install the new module from the puppet forge `puppet module install datadog-datadog_agent`
+* Update your manifests with the new module class, basically replace `datadog` by `datadog_agent`
+
+#### For instance to deploy the elasticsearch integration
+    include 'datadog_agent::integrations::elasticsearch'
 
 Usage
 -----
 
-Once the `datadog` module is installed on your master, there's a tiny bit of configuration
+Once the `datadog_agent` module is installed on your master, there's a tiny bit of configuration
 that needs to be done.
 
 1. Update the default class parameters with your [API key](https://app.datadoghq.com/account/settings#api)
-   (and confirm the DataDog URL is correct in datadog::params).
 
 2. Specify the module on any nodes you wish to install the DataDog
    Agent.
 
-        include datadog
+        include datadog_agent
 
-  Or assign this module using the Puppet 2.6 style Parameterized class:
-        class { 'datadog':
+  Or assign this module using the Puppet style Parameterized class:
+        class { 'datadog_agent':
           api_key => "yourkey",
         }
 
   On your Puppet master, enable reporting:
 
-        class { 'datadog':
-          api_key => "yourkey",
-          puppet_run_reports = true,
+        class { 'datadog_agent':
+          api_key            => "yourkey",
+          puppet_run_reports => true,
         }
+
+  __To support reporting, your Puppet master needs to have the [dogapi](https://github.com/DataDog/dogapi-rb) gem installed, to do that either run the puppet agent on your master with this configuration or install it manually with `gem`__
+
+3. Include any other integrations you want the agent to use, e.g.
+
+        include 'datadog_agent::integrations::mongo'
 
 Reporting
 ---------
-To enable reporting of changes to the Datadog timeline, enable the report 
-processor on your Puppet master, and enable reporting for your clients. 
-The clients will send a run report after each check-in back to the master, 
+To enable reporting of changes to the Datadog timeline, enable the report
+processor on your Puppet master, and enable reporting for your clients.
+The clients will send a run report after each check-in back to the master,
 and the master will process the reports and send them to the Datadog API.
 
 
-   In your Puppet master /etc/puppet/puppet.conf, add these config options:
+In your Puppet master `/etc/puppet/puppet.conf`, add these configuration options:
 
-        [master]
-        ...
-        reports="datadog_reports"
+    [main]
+    # No need to modify this section
+    # ...
 
-        [agent]
-        ...
-        pluginsync=true
-        report=true
+    [master]
+    # Enable reporting to datadog
+    reports=datadog_reports
+    # If you use other reports already, just add datadog_reports at the end
+    # reports=store,log,datadog_reports
+    # ...
 
+    [agent]
+    # ...
+    pluginsync=true
+    report=true
 
-   And on all of your Puppet client nodes add:
+And on all of your Puppet client nodes add:
 
-        [agent]
-        ...
-        report=true
+    [agent]
+    # ...
+    report=true
+
+If you get
+
+    err: Could not send report:
+    Error 400 on SERVER: Could not autoload datadog_reports:
+    Class Datadog_reports is already defined in Puppet::Reports
+
+Make sure `reports=datadog_reports` is defined in **[master]**, not **[main]**.
 
 Step-by-step
 ============
 
-This is the minimal set of files to use to get started. These files assume puppet 2.7.x
+This is the minimal set of modifications to get started. These files assume puppet 2.7.x or higher.
 
 /etc/puppet/puppet.conf
 -----------------------
 
-    [main]
-    logdir=/var/log/puppet
-    vardir=/var/lib/puppet
-    ssldir=/var/lib/puppet/ssl
-    rundir=/var/run/puppet
-    factpath=$vardir/lib/facter
-    templatedir=$confdir/templates
-    
     [master]
-    # These are needed when the puppetmaster is run by passenger
-    # and can safely be removed if webrick is used.
-    ssl_client_header = SSL_CLIENT_S_DN 
-    ssl_client_verify_header = SSL_CLIENT_VERIFY
     report = true
     reports = datadog_reports
     pluginsync = true
-    syslogfacility = user
-    
+
     [agent]
     report = true
     pluginsync = true
@@ -114,13 +126,13 @@ This is the minimal set of files to use to get started. These files assume puppe
 ------------------------------
 
     node "default" {
-        class { "datadog":
+        class { "datadog_agent":
             api_key => "INSERT YOU API KEY HERE",
         }
     }
-    node "YOUR NODE NAME HERE" {
-        class { "datadog":
-            api_key => "INSERT YOUR API KEY HERE",
+    node "puppetmaster" {
+        class { "datadog_agent":
+            api_key            => "INSERT YOUR API KEY HERE",
             puppet_run_reports => true
         }
     }
@@ -135,7 +147,7 @@ Run Puppet Agent
 
     sudo /etc/init.d/puppetmaster restart
     sudo puppet agent --onetime --no-daemonize --no-splay --verbose
-    
+
 You should see something like:
 
     info: Retrieving plugin
@@ -146,37 +158,57 @@ You should see something like:
 Verify on Datadog
 -----------------
 
-Search for "Puppet" and you should see something like this:
+Go to [the Setup page](https://app.datadoghq.com/account/settings#integrations) and you should see this
+
+![Puppet integration tile][puppet-integration-tile]
+
+If you click on the tile, you may reconfirm it's been automatically installed.
+
+![Puppet integration][puppet-integration]
+
+[puppet-integration-tile]: https://raw.githubusercontent.com/DataDog/documentation/master/content/integrations/images/snapshot_puppet_tile.png
+
+[puppet-integration]: https://raw.githubusercontent.com/DataDog/documentation/master/content/integrations/images/snapshot_puppet_integration.png
+
+Search for "Puppet" in the Stream and you should see something like this:
 
 ![Puppet Events in Datadog][puppet-events]
 
-[puppet-events]: https://img.skitch.com/20120403-bdipicbpquwccwxm2u3cwdc6ar.png
+[puppet-events]: https://raw.githubusercontent.com/DataDog/documentation/master/content/integrations/images/snapshot_puppet_events.png
 
-Miscellaneous
-=============
+Masterless puppet
+=================
 
-Authors
--------
+This is a specific setup, you can use https://gist.github.com/LeoCavaille/cd412c7a9ff5caec462f to set it up.
 
-* James Turnbull <james@lovedthanlost.net>
-* Alexis Lê-Quôc <alq@datadoghq.com>
-* Rob Terhaar <rob@atlanticdynamic.com>
+Module Development and Testing
+==============================
 
-License
--------
+### Clone the repo
 
-    Author:: James Turnbull (<james@lovedthanlost.net>)
-    Copyright:: Copyright (c) 2011 James Turnbull
-    License:: Apache License, Version 2.0
+```
+git clone git@github.com:DataDog/puppet-datadog-agent.git
+cd puppet-datadog-agent
+```
 
-    Licensed under the Apache License, Version 2.0 (the "License");
-    you may not use this file except in compliance with the License.
-    You may obtain a copy of the License at
+### Install dependencies
 
-        http://www.apache.org/licenses/LICENSE-2.0
+```
+bundle install
+rake lint              # Check puppet manifests with puppet-lint / Run puppet-lint
+rake spec              # Run spec tests in a clean fixtures directory
+rake syntax            # Syntax check Puppet manifests and templates
+rake syntax:manifests  # Syntax check Puppet manifests
+rake syntax:templates  # Syntax check Puppet templates
+pip install pre-commit
+pre-commit install
+```
 
-    Unless required by applicable law or agreed to in writing, software
-    distributed under the License is distributed on an "AS IS" BASIS,
-    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-    See the License for the specific language governing permissions and
-    limitations under the License.
+## Contributing
+
+1. Fork it
+2. Create your feature branch (`git checkout -b my-new-feature`)
+3. Commit your changes (`git commit -am 'Add some feature'`)
+4. Push to the branch (`git push origin my-new-feature`)
+5. Create new Pull Request
+

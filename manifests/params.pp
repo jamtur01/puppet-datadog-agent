@@ -1,4 +1,4 @@
-# Class: datadog::params
+# Class: datadog_agent::params
 #
 # This class contains the parameters for the Datadog module
 #
@@ -14,20 +14,21 @@
 #
 # Sample Usage:
 #
-class datadog::params {
-  $api_key = "your API key"
-  $dd_url  = "https://app.datadoghq.com"
+class datadog_agent::params {
+  $conf_dir       = '/etc/dd-agent/conf.d'
+  $dd_user        = 'dd-agent'
+  $dd_group       = 'root'
+  $package_name   = 'datadog-agent'
+  $service_name   = 'datadog-agent'
 
-  case $operatingsystem {
-    "Ubuntu","Debian": {
-      $rubygems_package = 'rubygems'
-      $rubydev_package =  'ruby-dev'
+  case $::operatingsystem {
+    'Ubuntu','Debian' : {
+      $rubydev_package   =  'ruby-dev'
     }
-    "RedHat","CentOS","Fedora": {
-      $rubygems_package = 'rubygems'
-      $rubydev_packages = 'ruby-devel'
+    'RedHat','CentOS','Fedora','Amazon','Scientific' : {
+      $rubydev_package   = 'ruby-devel'
     }
-    default: { notify{'Unsupported OS': message => 'The DataDog module only support Red Hat and Ubuntu derivatives'} }
+    default: { fail("Class[datadog_agent]: Unsupported operatingsystem: ${::operatingsystem}") }
   }
-    
+
 }

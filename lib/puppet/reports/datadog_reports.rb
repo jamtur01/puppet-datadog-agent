@@ -4,7 +4,7 @@ require 'yaml'
 begin
   require 'dogapi'
 rescue LoadError => e
-  Puppet.info "You need the `dogapi` gem to use the Datadog report"
+  Puppet.info "You need the `dogapi` gem to use the Datadog report (run puppet with puppet_run_reports on your master)"
 end
 
 Puppet::Reports.register_report(:datadog_reports) do
@@ -41,7 +41,7 @@ Puppet::Reports.register_report(:datadog_reports) do
 
     event_title = ''
     alert_type = ''
-    event_priority = ''
+    event_priority = 'low'
     event_data = ''
 
     if defined?(self.status)
@@ -54,21 +54,18 @@ Puppet::Reports.register_report(:datadog_reports) do
       elsif @status == 'changed'
         event_title = "Puppet changed resources on #{@msg_host}"
         alert_type = "success"
-        event_priority = "low"
+        event_priority = "normal"
       elsif @status == "unchanged"
         event_title = "Puppet ran on, and left #{@msg_host} unchanged"
         alert_type = "success"
-        event_priority = "low"
-      else 
+      else
         event_title = "Puppet ran on #{@msg_host}"
         alert_type = "success"
-        event_priority = "low"
       end
 
     else
       # for puppet log format 1
       event_title = "Puppet ran on #{@msg_host}"
-      event_priority = "low"
     end
 
     # Extract statuses
@@ -79,20 +76,20 @@ Puppet::Reports.register_report(:datadog_reports) do
     # Little insert if we know the config
     config_version_blurb = if defined?(self.configuration_version) then "applied version #{self.configuration_version} and" else "" end
 
-    event_data << "Puppet #{config_version_blurb} changed #{pluralize(changed_resources.length, 'resources')} out of #{total_resource_count}."
-    
+    event_data << "Puppet #{config_version_blurb} changed #{pluralize(changed_resources.length, 'resource')} out of #{total_resource_count}."
+
     # List changed resources
     if changed_resources.length > 0
-      event_data << "\nThe resources that changed are:\n@@@"
+      event_data << "\nThe resources that changed are:\n@@@\n"
       changed_resources.each {|s| event_data << "#{s.title} in #{s.file}:#{s.line}\n" }
-      event_data << "@@@\n"
+      event_data << "\n@@@\n"
     end
 
     # List failed resources
     if failed_resources.length > 0
-      event_data << "\nThe resources that failed are:\n@@@"
+      event_data << "\nThe resources that failed are:\n@@@\n"
       failed_resources.each {|s| event_data << "#{s.title} in #{s.file}:#{s.line}\n" }
-      event_data << "@@@\n"
+      event_data << "\n@@@\n"
     end
 
     Puppet.debug "Sending metrics for #{@msg_host} to Datadog"
