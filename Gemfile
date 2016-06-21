@@ -7,6 +7,7 @@ group :test do
   gem "puppetlabs_spec_helper"
   gem "rake"
   gem "rspec-puppet", '2.2.0'
+  gem "listen", "~> 3.0.0"
 end
 
 group :development do
